@@ -70,6 +70,7 @@ dtb-$(CONFIG_ARM64) += coreelec-gxl/gxl_p212_2g_g9sx.dtb
 dtb-$(CONFIG_ARM64) += coreelec-gxl/gxl_p212_2g_slowemmc.dtb
 dtb-$(CONFIG_ARM64) += coreelec-gxl/gxl_p212_3g.dtb
 dtb-$(CONFIG_ARM64) += coreelec-gxl/gxl_p230_2g.dtb
+dtb-$(CONFIG_ARM64) += coreelec-gxl/gxl_p230_2g_amiko_a6_combo.dtb
 dtb-$(CONFIG_ARM64) += coreelec-gxl/gxl_p230_k1_pro.dtb
 dtb-$(CONFIG_ARM64) += coreelec-gxl/gxl_p230_k1_pro_ser.dtb
 dtb-$(CONFIG_ARM64) += coreelec-gxl/gxl_p230_k2_pro_100mbit.dtb

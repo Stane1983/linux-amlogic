@@ -1,0 +1,159 @@
+/*
+ * Amiko A6 Combo (Amlogic S905D, 2GB DDR, eMMC, DVB-S2/T2/C combo frontend)
+ *
+ * Board specifics taken from the vendor 3.14 DTB dumped from a running unit:
+ *   - DVB frontend: Montage M88DM6000 on I2C-B (adapter 1) @0x38,
+ *     reset GPIODV_24 (active low), LNB power GPIOAO_6, parallel TS0
+ *   - Smartcard: enable GPIODV_18, 5V/3V GPIODV_19, detect GPIODV_20
+ *     (inverted), reset GPIODV_21, CLK/DATA on GPIODV_22/23
+ *   - Front panel: CLK GPIODV_16, DAT GPIODV_17 (driven by OpenVFD)
+ *   - "lkse2io" (Amiko proprietary): CLK GPIODV_13, DAT GPIODV_14
+ *   - Ethernet: internal 10/100 PHY, link/act LEDs on GPIOZ_14/15
+ *   - System LED GPIOAO_9 (active low), power key GPIOAO_2
+ *   - Wi-Fi/BT: SDIO, power GPIOX_6, irq GPIOX_7, 32k on GPIOX_16,
+ *     BT reset GPIOX_17
+ */
+
+#include "gxl_p230_2g.dts"
+
+/{
+	model = "Amiko A6 Combo";
+	coreelec-dt-id = "gxl_p230_2g_amiko_a6_combo";
+
+	/* coreelec_gxl.dtsi puts sys_led on GPIODV_24, the demod reset here */
+	gpioleds {
+		sys_led {
+			gpios = <&gpio_ao GPIOAO_9 GPIO_ACTIVE_LOW>;
+		};
+	};
+
+	/* 32.768kHz Wi-Fi clock, values from the vendor DTB */
+	wifi_pwm_conf {
+		pwm_channel1_conf {
+			times = <6>;
+		};
+		pwm_channel2_conf {
+			pwms = <&pwm_ef MESON_PWM_2 30518 0>;
+			duty-cycle = <15259>;
+			times = <9>;
+		};
+	};
+
+	/* two USB host ports on this board */
+	usb2phy@d0078000 {
+		portnum = <2>;
+	};
+
+	/* no DMIC; its pins (GPIODV_24/25) collide with the demod reset */
+	snd_dmic {
+		status = "disabled";
+	};
+
+	/* Amlogic dvb-extern framework from the p230 base: not used by CoreELEC,
+	 * and its reset GPIO (GPIODV_14) is the lkse2io data line here.
+	 */
+	dvb-extern {
+		status = "disabled";
+	};
+
+	/*
+	 * CoreELEC DVB driver (media_tree_aml, drivers/media/platform/meson/dvb).
+	 * Note: that driver probes AVL6862/AVL6762/M88RS6060/AVL6211/MN88436/
+	 * CXD2841ER only; the Montage M88DM6000 needs an additional demod driver.
+	 * power_ctrl_gpio is switched by the demod's set_voltage() = LNB power.
+	 */
+	dvb {
+		compatible = "amlogic,dvb";
+		dev_name = "dvb";
+		ts0 = "parallel";
+		ts0_control = <0x0>;
+		ts0_invert = <0x0>;
+		dtv_demod0_i2c_adap_id = <1>;		/* I2C-B */
+		dtv_demod0_i2c_addr = <0x38>;
+		fec_reset_gpio-gpios = <&gpio GPIODV_24 GPIO_ACTIVE_LOW>;
+		power_ctrl_gpio-gpios = <&gpio_ao GPIOAO_6 GPIO_ACTIVE_HIGH>;
+		pinctrl-names = "p_ts0", "s_ts0";
+		pinctrl-0 = <&dvb_p_ts0_pins>;
+		pinctrl-1 = <&dvb_s_ts0_pins>;
+		clocks = <&clkc CLKID_DEMUX
+		&clkc CLKID_ASYNC_FIFO
+		&clkc CLKID_AHB_ARB0
+		&clkc CLKID_HIU_IFACE>;
+		clock-names = "demux", "asyncfifo", "ahbarb0", "uparsertop";
+
+		interrupts = <GIC_SPI 23 IRQ_TYPE_EDGE_RISING>,
+			     <GIC_SPI  5 IRQ_TYPE_EDGE_RISING>,
+			     <GIC_SPI 19 IRQ_TYPE_EDGE_RISING>,
+			     <GIC_SPI 25 IRQ_TYPE_EDGE_RISING>;
+		interrupt-names = "demux0", "demux1", "asyncfifo0", "asyncfifo1";
+	};
+
+	smartcard {
+		compatible = "amlogic,smartcard";
+		irq_trigger_type = "GPIO_IRQ_LOW";
+
+		reset_pin-gpios = <&gpio GPIODV_21 GPIO_ACTIVE_HIGH>;
+		detect_pin-gpios = <&gpio GPIODV_20 GPIO_ACTIVE_HIGH>;
+		enable_5v3v_pin-gpios = <&gpio GPIODV_19 GPIO_ACTIVE_HIGH>;
+		enable_pin-gpios = <&gpio GPIODV_18 GPIO_ACTIVE_HIGH>;
+
+		/* SPI 37 == GIC id 69, the "smc0_irq = 69" of the 3.14 DTB */
+		interrupts = <GIC_SPI 37 IRQ_TYPE_EDGE_RISING>;
+		interrupt-names = "smc0_irq";
+		smc0_clock_source = <0>;
+		smc0_irq = <37>;
+		/* 1: low level on detect pin indicates card in */
+		smc0_det_invert = <1>;
+		smc0_5v3v_level = <0>;
+		smc_need_enable_pin = "yes";
+		reset_level = <0>;
+		smc0_enable_level = <1>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&sd_iso7816_pins>;
+		clocks = <&clkc CLKID_SMART_CARD>;
+		clock-names = "smartcard";
+		status = "okay";
+	};
+
+	/*
+	 * Front panel. Pins only; controller type, digit order and dot bits
+	 * come from the OpenVFD vfd.conf (openvfd_display_type etc. can be
+	 * added here once known).
+	 */
+	openvfd {
+		openvfd_gpio_clk = <&gpio GPIODV_16 GPIO_ACTIVE_HIGH>;
+		openvfd_gpio_dat = <&gpio GPIODV_17 GPIO_ACTIVE_HIGH>;
+	};
+
+	/* Amiko proprietary 2-wire device (no driver in this tree) */
+	lkse2io {
+		compatible = "amlogic,lkse2io";
+		dev_name = "lkse2io";
+		status = "okay";
+		lkse2io_clk_pin = <&gpio GPIODV_13 GPIO_ACTIVE_HIGH>;
+		lkse2io_dat_pin = <&gpio GPIODV_14 GPIO_ACTIVE_HIGH>;
+	};
+};
+
+/* internal 10/100 PHY instead of the p230's external RGMII PHY */
+&ethmac {
+	pinctrl-names = "internal_eth_pins";
+	pinctrl-0 = <&internal_eth_pins>;
+	/delete-property/ rst_pin-gpios;
+	/delete-property/ GPIOZ4_pin-gpios;
+	/delete-property/ GPIOZ5_pin-gpios;
+	internal_phy = <1>;
+	wol = <0>;
+};
+
+&pinctrl_periphs {
+	/* internal PHY link/activity LEDs */
+	internal_eth_pins: internal_eth_pins {
+		mux {
+			groups = "eth_link_led",
+				"eth_act_led";
+			function = "eth";
+		};
+	};
+};
