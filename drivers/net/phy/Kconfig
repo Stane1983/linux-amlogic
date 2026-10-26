@@ -363,6 +363,16 @@ config REALTEK_PHY
 	help
 	  Supports the Realtek 821x PHY.
 
+config MAXIO_PHY
+	tristate "Maxio PHYs"
+	help
+	  Supports the Maxio MAE0621A-Q2C and MAE0621A/B-Q3C(I) PHYs
+
+config JLSEMI_PHY
+	tristate "JLSemi PHY"
+	help
+	  Supports the JLSemi PHY
+
 config RENESAS_PHY
 	tristate "Renesas PHYs"
 	help
